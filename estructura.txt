@@ -1,0 +1,10 @@
+/
+README.md
+data
+    patron.wav
+    muestra1.wav
+    muestra2.wav
+code
+    functions.py
+    test.ipynb
+
