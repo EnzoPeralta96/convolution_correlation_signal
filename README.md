@@ -32,9 +32,28 @@ Donde `conj()` denota el conjugado complejo.
 
 ---
 
+## Estructura del Proyecto
+
+```
+convolution_correlation_signal/
+├── README.md                    # Documentación del proyecto
+├── experiments.ipynb            # Notebook con experimentos y evaluaciones
+├── lib/                         # Librería de módulos reutilizables
+│   ├── __init__.py             # Inicializador del paquete
+│   ├── audio_io.py             # Módulo de carga de audio
+│   ├── signal_processing.py    # Procesamiento de señales (correlación FFT)
+│   ├── visualization.py        # Visualización de resultados
+│   └── evaluation.py           # Evaluación y clasificación
+└── data/                        # Archivos de audio para análisis (~630 MB)
+    ├── patron.wav              # Patrón de referencia (ritmo reggaeton)
+    ├── cancion_1.wav           # Canción reggaeton 1
+    ├── cancion_2.wav           # Canción reggaeton 2
+    └── cancion_no_reggae_*.wav # Canciones no-reggaeton (10 archivos)
+```
+
 ## Descripción del Código
 
-El código implementado en `Código.ipynb` realiza el siguiente flujo de trabajo:
+El sistema está organizado en una librería modular (`lib/`) y un notebook de experimentos (`experiments.ipynb`):
 
 ### 1. Configuración Inicial
 
@@ -46,30 +65,65 @@ TAU = 0.01             # Threshold para la correlación
 - **Tasa de muestreo:** 44,100 Hz es el estándar para audio CD
 - **Umbral (TAU):** Define el límite de similitud para clasificar la canción
 
-### 2. Carga de Archivos de Audio
+### 2. Librería `lib/`
 
-**Función:** `cargar_audio_y_patron(cancion_path, patron_path, sr)`
+#### 2.1. Módulo `audio_io.py`
+
+Este módulo proporciona funciones para cargar archivos de audio.
+
+##### Función: `cargar_audio(audio_path, sr)`
 
 ```python
-def cargar_audio_y_patron(cancion_path, patron_path, sr):
-  try:
-    x, _ = librosa.load(cancion_path, sr=sr)
-    p, _ = librosa.load(patron_path, sr=sr)
-    print(f"Canción cargada: {cancion_path} ({len(x)} muestras)")
-    print(f"Patrón cargado: {patron_path} ({len(p)} muestras)")
-    return x, p
-  except Exception as e:
-    print(f"Error al cargar archivos de audio: {e}")
-    return None, None
+def cargar_audio(audio_path, sr):
+    """
+    Carga un archivo de audio.
+
+    Args:
+        audio_path (str): Ruta al archivo de audio
+        sr (int): Sample rate (frecuencia de muestreo)
+
+    Returns:
+        numpy.ndarray: Señal de audio como array NumPy, o None si hay error
+    """
+    try:
+        audio, _ = librosa.load(audio_path, sr=sr)
+        print(f"Audio cargado: {audio_path} ({len(audio)} muestras)")
+        return audio
+    except Exception as e:
+        print(f"Error al cargar archivo de audio: {e}")
+        return None
 ```
 
 **Descripción:**
-- Utiliza `librosa.load()` para cargar archivos de audio en formato WAV
-- Los archivos se remuestrean a la tasa especificada (44.1 kHz)
-- Retorna las señales como arrays NumPy unidimensionales
+- Carga un solo archivo de audio en formato WAV
+- Remuestrea a la frecuencia especificada (44.1 kHz por defecto)
+- Retorna la señal como array NumPy unidimensional
 - Maneja errores de carga de forma robusta
 
-### 3. Correlación Rápida por FFT
+**Uso típico:**
+```python
+patron = cargar_audio('data/patron.wav', 44100)
+cancion = cargar_audio('data/cancion_1.wav', 44100)
+```
+
+##### Función: `cargar_audio_y_patron(cancion_path, patron_path, sr)`
+
+```python
+def cargar_audio_y_patron(cancion_path, patron_path, sr):
+    """
+    Carga archivos de audio para la canción y el patrón a detectar.
+
+    Returns:
+        tuple: (x, p) donde x es la señal de la canción y p es el patrón
+    """
+```
+
+**Descripción:**
+- Carga simultáneamente una canción y un patrón
+- Útil para análisis standalone o scripts simples
+- Retorna ambas señales como tupla (canción, patrón)
+
+#### 2.2. Módulo `signal_processing.py`
 
 **Función:** `correlacion_rapida_fft(x, p)`
 
@@ -116,9 +170,9 @@ def correlacion_rapida_fft(x, p):
 - Resultados matemáticamente equivalentes al método temporal
 - Escalable para señales de gran tamaño
 
-### 4. Visualización de Espectrogramas
+#### 2.3. Módulo `visualization.py`
 
-**Función:** `plot_espectros(x, p, sr)`
+##### Función: `plot_espectros(x, p, sr)`
 
 ```python
 def plot_espectros(x, p, sr):
@@ -157,9 +211,7 @@ def plot_espectros(x, p, sr):
 - El eje X muestra el tiempo (segundos)
 - Los colores representan intensidad en dBFS
 
-### 5. Visualización de Señales en el Tiempo
-
-**Función:** `plot_canciones(x, p, sr)`
+##### Función: `plot_canciones(x, p, sr)`
 
 ```python
 def plot_canciones(x, p, sr):
@@ -191,9 +243,7 @@ def plot_canciones(x, p, sr):
 - Grafica ambas señales en el dominio del tiempo
 - Permite visualizar la forma de onda y duración relativa
 
-### 6. Visualización del Resultado de Correlación
-
-**Función:** `plot_resultado(r_xp_norm, lags, tau, sr)`
+##### Función: `plot_resultado(r_xp_norm, lags, tau, sr)`
 
 ```python
 def plot_resultado(r_xp_norm, lags, tau, sr):
@@ -229,31 +279,57 @@ def plot_resultado(r_xp_norm, lags, tau, sr):
 - Si `R_max > TAU`: Alta similitud, la canción pertenece al género
 - Si `R_max ≤ TAU`: Baja similitud, la canción no pertenece al género
 
-### 7. Flujo Principal de Ejecución
+#### 2.4. Módulo `evaluation.py`
 
+##### Función: `evaluar_deteccion(r_max, tau, es_positivo_esperado=True)`
+
+Clasifica el resultado en una matriz de confusión:
+- **VP (Verdadero Positivo)**: Reggaeton detectado correctamente (R_max > tau)
+- **VN (Verdadero Negativo)**: No-reggaeton rechazado correctamente (R_max ≤ tau)
+- **FP (Falso Positivo)**: No-reggaeton pero detectado como reggaeton
+- **FN (Falso Negativo)**: Reggaeton pero no detectado
+
+Retorna un diccionario con el tipo de resultado y mensaje descriptivo.
+
+##### Función: `imprimir_resultado(resultado)`
+
+Formatea e imprime los resultados de forma legible, mostrando R_max, tipo de resultado y mensaje.
+
+### 3. Notebook `experiments.ipynb`
+
+El notebook realiza experimentos sistemáticos para evaluar el sistema:
+
+**Configuración Global:**
 ```python
-# Cargar señales
-x, p = cargar_audio_y_patron(CANCION_FILE, PATRON_FILE, TASA_MUESTREO)
+TASA_MUESTREO = 44100  # Tasa de muestreo estándar (44.1kHz)
+TAU = 0.01             # Umbral para la correlación
+PATRON_FILE = os.path.join(os.getcwd(), 'data', 'patron.wav')
+```
 
-# Calcular correlación
+**Flujo de Experimentos:**
+```python
+# 1. Cargar patrón (una sola vez)
+p = cargar_audio(PATRON_FILE, TASA_MUESTREO)
+
+# 2. Para cada canción de prueba:
+x = cargar_audio(CANCION_FILE, TASA_MUESTREO)
+
+# 3. Calcular correlación
 r, lags = correlacion_rapida_fft(x, p)
 
-# Visualizar señales
+# 4. Visualizar señales y resultados
 plot_canciones(x, p, TASA_MUESTREO)
 plot_espectros(x, p, TASA_MUESTREO)
-
-# Visualizar correlación y obtener resultado
 R_max, t_peak = plot_resultado(r, lags, TAU, TASA_MUESTREO)
 
-# Clasificación
-print("\n--- Resultados ---")
-print(f"Pico Máximo de Correlación (R_max): {R_max:.4f}")
-
-if R_max > TAU:
-  print("\nConclusión: La canción pertenece al género")
-else:
-  print("\nConclusión: La canción no pertenece al género")
+# 5. Evaluar y clasificar
+resultado = evaluar_deteccion(R_max, TAU, es_positivo_esperado=False)
+imprimir_resultado(resultado)
 ```
+
+**Casos de Prueba:**
+- **Verdaderos Negativos (VN)**: 10 canciones no-reggaeton que deben ser rechazadas
+- **Verdaderos Positivos (VP)**: 2 canciones reggaeton que deben ser detectadas
 
 ---
 
@@ -262,86 +338,97 @@ else:
 ### Requisitos
 
 ```bash
-pip install numpy librosa matplotlib
+pip install numpy librosa matplotlib ipykernel jupyter
 ```
 
 ### Bibliotecas Utilizadas
 
 - **NumPy:** Operaciones numéricas y arrays
 - **Librosa:** Carga y análisis de audio
-- **Matplotlib:** Visualización de datos
+- **Matplotlib:** Visualización de datos y gráficos
+- **IPykernel/Jupyter:** Ejecución de notebooks
 
-### Ejecución
+### Instalación Paso a Paso
 
-1. Montar Google Drive (si se usa en Colab):
-```python
-from google.colab import drive
-drive.mount('/content/drive')
+1. **Clonar el repositorio:**
+```bash
+git clone https://github.com/EnzoPeralta96/convolution_correlation_signal.git
+cd convolution_correlation_signal
 ```
 
-2. Modificar las rutas de los archivos de audio:
-```python
-CANCION_FILE = 'ruta/a/tu/cancion.wav'
-PATRON_FILE = 'ruta/a/tu/patron.wav'
+2. **Instalar dependencias:**
+```bash
+pip install numpy librosa matplotlib ipykernel jupyter
 ```
 
-3. Ejecutar todas las celdas del notebook `Código.ipynb`
+
+
+3. **Ejecutar el notebook de experimentos:**
+```bash
+jupyter notebook experiments.ipynb
+```
+
+O abrirlo directamente en VS Code con la extensión de Jupyter.
+
+### Uso de la Librería
+
+#### Opción 1: Cargar archivos individualmente (recomendado)
+
+```python
+import os
+from lib import (
+    cargar_audio,
+    correlacion_rapida_fft,
+    plot_espectros,
+    plot_canciones,
+    plot_resultado,
+    evaluar_deteccion,
+    imprimir_resultado
+)
+
+# Configuración
+TASA_MUESTREO = 44100
+TAU = 0.01
+
+# Cargar patrón y canción por separado
+patron_path = os.path.join('data', 'patron.wav')
+cancion_path = os.path.join('data', 'cancion_1.wav')
+
+p = cargar_audio(patron_path, TASA_MUESTREO)
+x = cargar_audio(cancion_path, TASA_MUESTREO)
+
+# Calcular correlación
+r, lags = correlacion_rapida_fft(x, p)
+
+# Visualizar y evaluar
+plot_canciones(x, p, TASA_MUESTREO)
+plot_espectros(x, p, TASA_MUESTREO)
+R_max, t_peak = plot_resultado(r, lags, TAU, TASA_MUESTREO)
+
+# Clasificar resultado
+resultado = evaluar_deteccion(R_max, TAU, es_positivo_esperado=True)
+imprimir_resultado(resultado)
+```
+
+#### Opción 2: Cargar ambos archivos simultáneamente
+
+```python
+from lib import cargar_audio_y_patron, correlacion_rapida_fft, ...
+
+# Cargar patrón y canción en un solo paso
+x, p = cargar_audio_y_patron(cancion_path, patron_path, TASA_MUESTREO)
+
+# Continuar con el análisis...
+```
 
 ---
-
-## Resultados y Análisis
-
-### Ventajas del Método Implementado
-
-1. **Eficiencia Computacional:** Uso de FFT reduce complejidad de `O(N²)` a `O(N log N)`
-2. **Normalización:** Valores entre 0 y 1 facilitan la interpretación
-3. **Visualización Completa:** Espectrogramas y señales temporales ayudan a entender el análisis
-4. **Robustez:** Manejo de errores en carga de archivos
-
-### Limitaciones
-
-1. **Falsos Positivos:** El enfoque puede generar falsos positivos dependiendo del tamaño del problema y la calidad del patrón de referencia
-2. **Sensibilidad al Umbral:** El valor de `TAU` debe ajustarse según el caso de uso
-3. **Patrones Complejos:** Géneros con variabilidad rítmica pueden ser difíciles de clasificar con un solo patrón
-
-### Aplicaciones Extendidas
-
-Este mismo enfoque puede aplicarse a:
-- Detección de eventos en señales biomédicas (ECG, EEG)
-- Reconocimiento de voz y comandos
-- Sincronización de señales de audio/video
-- Identificación de huellas acústicas (audio fingerprinting)
-
----
-
-## Conclusiones
-
-Los resultados obtenidos validan que:
-
-1. La **correlación cruzada** es una herramienta efectiva para detectar similitudes temporales entre señales
-2. El uso de **FFT** permite realizar estos cálculos de forma eficiente incluso en señales de gran tamaño
-3. La **normalización** de la correlación facilita la comparación con umbrales establecidos
-4. El enfoque implementado es aplicable a problemas reales de clasificación de audio
-
-Sin embargo, se debe considerar que:
-- El método puede generar **falsos positivos** según el patrón elegido
-- Se requiere un **ajuste cuidadoso del umbral** para cada aplicación
-- Para clasificación robusta, se recomienda combinar con otras técnicas (características espectrales, aprendizaje automático)
-
----
-
-## Referencias
-
-- Oppenheim, A. V., & Schafer, R. W. (2009). *Discrete-Time Signal Processing*. Pearson.
-- McFee, B., et al. (2015). *librosa: Audio and Music Signal Analysis in Python*. SciPy.
-- Cooley, J. W., & Tukey, J. W. (1965). *An algorithm for the machine calculation of complex Fourier series*. Mathematics of Computation.
 
 ---
 
 ## Autor
 
-**Enzo Peralta**
-Proyecto Final - Métodos Numéricos 2 (MN2-CC)
+**Iñaki Poch - Javier Naccio - Enzo Peralta**
+Proyecto Final - Computación Cientifica (CC) - Métodos Numéricos 2 (MN2-CC)
 2025
 
 ---
