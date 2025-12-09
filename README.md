@@ -302,7 +302,7 @@ El notebook realiza experimentos sistemáticos para evaluar el sistema:
 **Configuración Global:**
 ```python
 TASA_MUESTREO = 44100  # Tasa de muestreo estándar (44.1kHz)
-TAU = 0.01             # Umbral para la correlación
+TAU = 0.0115             # Umbral para la correlación
 PATRON_FILE = os.path.join(os.getcwd(), 'data', 'patron.wav')
 ```
 
@@ -420,8 +420,6 @@ x, p = cargar_audio_y_patron(cancion_path, patron_path, TASA_MUESTREO)
 
 # Continuar con el análisis...
 ```
-
----
 
 ---
 
