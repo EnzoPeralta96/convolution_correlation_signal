@@ -51,6 +51,8 @@ convolution_correlation_signal/
     └── cancion_no_reggae_*.wav # Canciones no-reggaeton (10 archivos)
 ```
 
+> **Nota sobre el dataset:** Este repositorio contiene una muestra representativa de los archivos de audio utilizados en los experimentos. El dataset completo incluye muestras adicionales que no fueron incluidas en el repositorio debido a su tamaño.
+
 ## Descripción del Código
 
 El sistema está organizado en una librería modular (`lib/`) y un notebook de experimentos (`experiments.ipynb`):
@@ -59,7 +61,7 @@ El sistema está organizado en una librería modular (`lib/`) y un notebook de e
 
 ```python
 TASA_MUESTREO = 44100  # Tasa de muestreo estándar (44.1kHz)
-TAU = 0.01             # Threshold para la correlación
+TAU = 0.0115            # Threshold para la correlación
 ```
 
 - **Tasa de muestreo:** 44,100 Hz es el estándar para audio CD
