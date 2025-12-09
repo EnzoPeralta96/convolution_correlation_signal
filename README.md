@@ -338,7 +338,7 @@ imprimir_resultado(resultado)
 ### Requisitos
 
 ```bash
-pip install numpy librosa matplotlib ipykernel jupyter
+pip install os numpy librosa matplotlib ipykernel jupyter
 ```
 
 ### Bibliotecas Utilizadas
